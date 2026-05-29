@@ -798,11 +798,13 @@
             </button>
 
             <!-- BOTÓN TEMPORAL DE PRUEBA -->
+            <!-- 
             <button class="btn-rol"
                 style="width: 100%; max-width: 300px; margin-top: 15px; background: #475569; padding: 12px; font-size: 16px; box-shadow: none;"
                 onclick="iniciarJuegoJugador()">
                 🛠️ Saltar QR (Modo Prueba)
-            </button>
+            </button> 
+            -->
         </div>
     </div>
 
@@ -926,9 +928,129 @@
         let listaCartones = [];
         let cantidadCartonesComprados = 1;
         let cantidadCartonesLocutor = 1;
+        let rolActual = null; // 'locutor', 'jugador', 'setup-jugador'
         const MAX_CARTONES = 6;
 
         const coloresLetras = { 'B': '#ef4444', 'I': '#3b82f6', 'N': '#f59e0b', 'G': '#10b981', 'O': '#8b5cf6' };
+
+        // --- SISTEMA DE PERSISTENCIA ---
+        function guardarEstado() {
+            const estado = {
+                bombo,
+                bolasSacadas: Array.from(bolasSacadas),
+                listaCartones: listaCartones.map(c => ({
+                    id: c.id,
+                    celdas: c.celdas.map(div => ({
+                        texto: div.innerText,
+                        marked: div.classList.contains('marked'),
+                        free: div.classList.contains('free')
+                    })),
+                    ganador: c.wrapperDOM.classList.contains('ganador')
+                })),
+                cantidadCartonesComprados,
+                cantidadCartonesLocutor,
+                rolActual,
+                pantallaActiva: document.querySelector('.pantalla.activa')?.id,
+                juegoLocutorActivo: document.getElementById('juego-cartones-locutor')?.style.display === 'flex'
+            };
+            localStorage.setItem('bingo_amigo_state', JSON.stringify(estado));
+        }
+
+        function cargarEstado() {
+            const data = localStorage.getItem('bingo_amigo_state');
+            if (!data) return;
+
+            const estado = JSON.parse(data);
+            bombo = estado.bombo;
+            bolasSacadas = new Set(estado.bolasSacadas);
+            cantidadCartonesComprados = estado.cantidadCartonesComprados;
+            cantidadCartonesLocutor = estado.cantidadCartonesLocutor;
+            rolActual = estado.rolActual;
+
+            if (estado.rolActual) {
+                // Restaurar pantalla
+                document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+                if (estado.pantallaActiva) document.getElementById(estado.pantallaActiva).classList.add('activa');
+
+                if (estado.rolActual === 'locutor') {
+                    generarTableroMaster();
+                    if (bolasSacadas.size > 0) {
+                        const ult = Array.from(bolasSacadas).pop();
+                        actualizarDisplayBola(ult);
+                    }
+                    if (estado.juegoLocutorActivo) {
+                        document.getElementById('setup-cartones-locutor').style.display = 'none';
+                        document.getElementById('juego-cartones-locutor').style.display = 'flex';
+                        restaurarCartones(estado.listaCartones, 'sliderCartonesLocutor', 'dotsContainerLocutor', true);
+                    }
+                } else if (estado.rolActual === 'jugador' || estado.pantallaActiva === 'pantalla-jugador') {
+                    restaurarCartones(estado.listaCartones, 'sliderCartones', 'dotsContainer', false);
+                }
+            }
+        }
+
+        function restaurarCartones(cartonesData, sliderId, dotsId, isLocutor) {
+            const slider = document.getElementById(sliderId);
+            slider.innerHTML = '';
+            listaCartones = [];
+
+            cartonesData.forEach(cData => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'carton-wrapper' + (cData.ganador ? ' ganador' : '');
+
+                const header = document.createElement('div');
+                header.className = 'bingo-header';
+                header.innerHTML = '<div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>';
+                wrapper.appendChild(header);
+
+                const grid = document.createElement('div');
+                grid.className = 'carton-grid';
+
+                let celdasDeEsteCarton = [];
+                cData.celdas.forEach((celdaData, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'cell';
+                    if (celdaData.free) div.classList.add('free');
+                    if (celdaData.marked) div.classList.add('marked');
+                    div.innerText = celdaData.texto;
+
+                    if (celdaData.free) {
+                        // Libre no tiene click o ya está marcado
+                    } else {
+                        div.onclick = function () {
+                            if (!wrapper.classList.contains('ganador') || this.classList.contains('marked')) {
+                                this.classList.toggle('marked');
+                                comprobarCartonEspecifico(cData.id);
+                                guardarEstado();
+                            }
+                        };
+                    }
+                    grid.appendChild(div);
+                    celdasDeEsteCarton.push(div);
+                });
+
+                wrapper.appendChild(grid);
+                slider.appendChild(wrapper);
+                listaCartones.push({ id: cData.id, wrapperDOM: wrapper, celdas: celdasDeEsteCarton });
+            });
+
+            actualizarIndicadores(dotsId);
+            if (!isLocutor) document.getElementById('indicadorCantidadCartones').innerText = `Cartones: ${listaCartones.length}`;
+
+            slider.onscroll = function () {
+                if (listaCartones.length <= 1) return;
+                const index = Math.round(this.scrollLeft / this.clientWidth);
+                resaltarDot(index, dotsId);
+            };
+        }
+
+        function actualizarDisplayBola(numero) {
+            let letra;
+            if (numero <= 15) letra = 'B'; else if (numero <= 30) letra = 'I';
+            else if (numero <= 45) letra = 'N'; else if (numero <= 60) letra = 'G'; else letra = 'O';
+            const display = document.getElementById('displayBola');
+            if (display) display.innerHTML = `<span style="color: ${coloresLetras[letra]};">${letra}</span>${numero}`;
+        }
 
         // --- SISTEMA LECTOR QR ---
         let html5QrCode;
@@ -967,16 +1089,18 @@
 
         // --- NAVEGACIÓN Y MODAL DE ADVERTENCIA ---
         function seleccionarRol(rol) {
+            rolActual = rol === 'setup-jugador' ? 'jugador' : rol;
             document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
             document.getElementById(`pantalla-${rol}`).classList.add('activa');
 
             if (rol === 'locutor') {
                 if (bombo.length === 0 && bolasSacadas.size === 0) reiniciarBombo();
-                cambiarTabLocutor('tablero'); // Reset tab view
+                cambiarTabLocutor('tablero');
             } else if (rol === 'setup-jugador') {
                 cantidadCartonesComprados = 1;
                 document.getElementById('displayContadorCartones').innerText = cantidadCartonesComprados;
             }
+            guardarEstado();
         }
 
         function volverAlInicio() {
@@ -1012,6 +1136,7 @@
             document.getElementById('pantalla-inicio').classList.add('activa');
             detenerConfeti();
             listaCartones = [];
+            rolActual = null;
 
             // Reiniciar panel de locutor (cartones ocultos)
             document.getElementById('setup-cartones-locutor').style.display = 'flex';
@@ -1019,6 +1144,7 @@
             cantidadCartonesLocutor = 1;
             document.getElementById('contador-locutor').innerText = 1;
             reiniciarBombo();
+            localStorage.removeItem('bingo_amigo_state');
         }
 
         // --- MODAL DE QR (LOCUTOR) ---
@@ -1030,14 +1156,15 @@
             if (tab === 'tablero') {
                 document.getElementById('tab-tablero').classList.add('activo');
                 document.getElementById('tab-cartones').classList.remove('activo');
-                document.getElementById('tableroMaster').classList.add('activa'); // CORREGIDO AQUÍ
+                document.getElementById('tableroMaster').classList.add('activa');
                 document.getElementById('vista-cartones').classList.remove('activa');
             } else {
                 document.getElementById('tab-cartones').classList.add('activo');
                 document.getElementById('tab-tablero').classList.remove('activo');
                 document.getElementById('vista-cartones').classList.add('activa');
-                document.getElementById('tableroMaster').classList.remove('activa'); // CORREGIDO AQUÍ
+                document.getElementById('tableroMaster').classList.remove('activa');
             }
+            guardarEstado();
         }
 
         function inicializarBombo() {
@@ -1085,19 +1212,16 @@
             const numero = bombo.pop();
             bolasSacadas.add(numero);
 
-            let letra;
-            if (numero <= 15) letra = 'B'; else if (numero <= 30) letra = 'I';
-            else if (numero <= 45) letra = 'N'; else if (numero <= 60) letra = 'G'; else letra = 'O';
+            actualizarDisplayBola(numero);
 
             const display = document.getElementById('displayBola');
-            display.innerHTML = `<span style="color: ${coloresLetras[letra]};">${letra}</span>${numero}`;
-
             display.classList.remove('pop');
             void display.offsetWidth;
             display.classList.add('pop');
 
             const bolaMini = document.getElementById(`master-${numero}`);
             bolaMini.classList.add('sacada');
+            guardarEstado();
         }
 
         function reiniciarBombo() {
@@ -1107,6 +1231,7 @@
             const display = document.getElementById('displayBola');
             display.innerHTML = '--';
             display.classList.remove('pop');
+            guardarEstado();
         }
 
         // --- LÓGICA DE JUGADOR Y LOCUTOR (CARTONES) ---
@@ -1133,13 +1258,16 @@
             }
             document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
             document.getElementById('pantalla-jugador').classList.add('activa');
+            rolActual = 'jugador';
             generarCartonesIniciales(cantidadCartonesComprados, false, false);
+            guardarEstado();
         }
 
         function generarCartonesLocutor() {
             document.getElementById('setup-cartones-locutor').style.display = 'none';
             document.getElementById('juego-cartones-locutor').style.display = 'flex';
             generarCartonesIniciales(cantidadCartonesLocutor, false, true);
+            guardarEstado();
         }
 
         function obtenerNumerosColumna(min, max) {
@@ -1215,6 +1343,7 @@
                             if (!wrapper.classList.contains('ganador') || this.classList.contains('marked')) {
                                 this.classList.toggle('marked');
                                 comprobarCartonEspecifico(cartonId);
+                                guardarEstado();
                             }
                         };
                     }
@@ -1303,7 +1432,10 @@
             });
             detenerConfeti();
 
-            setTimeout(() => { if (btnLimpiar) btnLimpiar.disabled = false; }, 800);
+            setTimeout(() => {
+                if (btnLimpiar) btnLimpiar.disabled = false;
+                guardarEstado();
+            }, 800);
         }
 
         function actualizarIndicadores(dotsId) {
@@ -1377,6 +1509,9 @@
                     .catch(err => console.log('Error al registrar el Service Worker:', err));
             });
         }
+
+        // CARGAR ESTADO AL INICIAR
+        window.addEventListener('DOMContentLoaded', cargarEstado);
     </script>
 </body>
 
