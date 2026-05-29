@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bingo Amigo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+    <!-- PWA META TAGS -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- LIBRERÍA PARA LEER CÓDIGOS QR -->
+    <script src="html5-qrcode.js"> </script>
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(255, 255, 255, 0.08);
+            --primary: #8b5cf6;
+            --mark-color: #ef4444;
+            --free-color: #f59e0b;
+            --text-light: #f8fafc;
+            --dark: #1e293b;
+        }
+
+        /* Eliminar sombreado azul al tocar botones en dispositivos móviles */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:focus {
+            outline: none;
+        }
+
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 100%);
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-light);
+            box-sizing: border-box;
+        }
+
+        #canvas-confetti {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .pantalla {
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            padding: 3vmin;
+            box-sizing: border-box;
+            gap: 2.5vmin;
+        }
+
+        .pantalla.activa {
+            display: flex;
+        }
+
+        /* --- PANTALLA DE INICIO Y SETUP --- */
+        #pantalla-inicio,
+        #pantalla-setup-jugador {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .logo-inicio {
+            font-size: clamp(40px, 10vmin, 80px);
+            font-weight: 900;
+            background: linear-gradient(135deg, #f59e0b, #ef4444, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+        }
+
+        .subtitulo {
+            color: #94a3b8;
+            font-size: clamp(16px, 4vmin, 24px);
+            margin-bottom: 8vmin;
+        }
+
+        .btn-rol {
+            width: 100%;
+            max-width: 350px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 20px;
+            border: none;
+            font-size: clamp(20px, 5vmin, 28px);
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn-rol.locutor {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-rol.jugador {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-rol:active {
+            transform: scale(0.95);
+        }
+
+        /* Controles de selección de cartones */
+        .selector-cartones {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            background: var(--panel-bg);
+            padding: 15px 20px;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-contador {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-contador:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .display-contador {
+            font-size: 50px;
+            font-weight: 900;
+            width: 50px;
+            text-align: center;
+            color: #fcd34d;
+        }
+
+        #qr-reader {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 16px;
+            overflow: hidden;
+            display: none;
+            background: #1e293b;
+            border: 2px solid #3b82f6;
+            margin-bottom: 10px;
+        }
+
+        #qr-feedback {
+            font-weight: bold;
+            height: 20px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        /* --- BOTÓN VOLVER Y HEADER COMÚN --- */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .btn-volver {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-volver:active {
+            transform: scale(0.95);
+        }
+
+        /* --- PANTALLA JUGADOR (CARRUSEL) --- */
+        .seccion-jugador {
+            flex: 1;
+            background: #ffffff;
+            color: var(--dark);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            padding-bottom: 2vmin;
+        }
+
+        .slider-cartones {
+            flex: 1;
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            scroll-behavior: smooth;
+        }
+
+        .slider-cartones::-webkit-scrollbar {
+            display: none;
+        }
+
+        .carton-wrapper {
+            min-width: 100%;
+            height: 100%;
+            padding: 3vmin;
+            box-sizing: border-box;
+            scroll-snap-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 2vmin;
+            position: relative;
+            transition: background 0.5s ease;
+        }
+
+        .carton-wrapper.ganador::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(253, 224, 71, 0.4), rgba(245, 158, 11, 0.4));
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bingo-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1vmin;
+            text-align: center;
+            font-weight: 900;
+            font-size: clamp(28px, 8vmin, 50px);
+            flex-shrink: 0;
+            z-index: 1;
+        }
+
+        .bingo-header div:nth-child(1) {
+            color: #ef4444;
+        }
+
+        .bingo-header div:nth-child(2) {
+            color: #3b82f6;
+        }
+
+        .bingo-header div:nth-child(3) {
+            color: #f59e0b;
+        }
+
+        .bingo-header div:nth-child(4) {
+            color: #10b981;
+        }
+
+        .bingo-header div:nth-child(5) {
+            color: #8b5cf6;
+        }
+
+        .carton-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 2vmin;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            perspective: 1000px;
+        }
+
+        .cell {
+            position: relative;
+            background-color: #f1f5f9;
+            border-radius: clamp(10px, 3vmin, 20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(24px, 7vmin, 48px);
+            font-weight: 900;
+            color: #334155;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            z-index: 1;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .cell::after {
+            content: '';
+            position: absolute;
+            width: 2.5em;
+            height: 2.5em;
+            background-color: var(--mark-color);
+            border-radius: 50%;
+            z-index: -1;
+            transform: scale(0);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.2), 0 0 15px rgba(239, 68, 68, 0.5);
+        }
+
+        .cell.marked {
+            color: white;
+            transform: scale(0.95);
+        }
+
+        .cell.marked::after {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .cell.free {
+            background: linear-gradient(135deg, #fcd34d, #f59e0b);
+            color: white;
+            font-size: clamp(14px, 4vmin, 24px);
+        }
+
+        .cell.free.marked::after {
+            display: none;
+        }
+
+        @keyframes pulsoGanador {
+            0% {
+                transform: scale(0.9);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 15px rgba(245, 158, 11, 0);
+                background-color: var(--free-color);
+            }
+
+            100% {
+                transform: scale(0.9);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+            }
+        }
+
+        .cell.winning-cell {
+            animation: pulsoGanador 1.5s infinite;
+            z-index: 10;
+        }
+
+        /* Efectos Cascada (Flip) */
+        @keyframes flipOut {
+            0% {
+                transform: rotateY(0deg) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: rotateY(90deg) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        @keyframes flipIn {
+            0% {
+                transform: rotateY(-90deg) scale(0.8);
+                opacity: 0;
+            }
+
+            100% {
+                transform: rotateY(0deg) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .flip-out {
+            animation: flipOut 0.3s both ease-in var(--delay);
+        }
+
+        .flip-in {
+            animation: flipIn 0.3s both ease-out var(--delay);
+        }
+
+        .dots-container {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            transition: all 0.3s ease;
+        }
+
+        .dot.active {
+            background: var(--primary);
+            transform: scale(1.5);
+        }
+
+        .controles-footer {
+            display: flex;
+            gap: 2vmin;
+            z-index: 1;
+            flex-shrink: 0;
+            padding: 0 3vmin;
+            height: clamp(50px, 10vmin, 80px);
+        }
+
+        .btn-jugador {
+            flex: 1;
+            border-radius: 16px;
+            font-size: clamp(16px, 4vmin, 24px);
+            font-weight: 800;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-jugador:active {
+            transform: scale(0.95);
+        }
+
+        .btn-jugador:disabled {
+            filter: grayscale(1);
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-limpiar {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .btn-cambiar {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        /* --- PANTALLA LOCUTOR --- */
+        .panel-control-locutor {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--panel-bg);
+            padding: 3vmin;
+            border-radius: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 8vw;
+            flex-shrink: 0;
+        }
+
+        .bola-actual-locutor {
+            width: clamp(80px, 22vmin, 140px);
+            height: clamp(80px, 22vmin, 140px);
+            background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0);
+            color: var(--dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(28px, 8vmin, 56px);
+            font-weight: 900;
+            box-shadow: inset -5px -5px 15px rgba(0, 0, 0, 0.2), 0 10px 20px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            flex-shrink: 0;
+            gap: 2px;
+        }
+
+        .bola-actual-locutor.pop {
+            transform: scale(1.15) rotate(-15deg);
+        }
+
+        .btn-cantar {
+            flex: 1;
+            max-width: 250px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: clamp(15px, 4vmin, 25px) clamp(10px, 4vmin, 30px);
+            border-radius: 20px;
+            font-size: clamp(20px, 5vmin, 36px);
+            font-weight: 900;
+            text-transform: uppercase;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            cursor: pointer;
+        }
+
+        .btn-cantar:active {
+            transform: scale(0.95);
+        }
+
+        /* TABS LOCUTOR */
+        .locutor-tabs {
+            display: flex;
+            gap: 2vmin;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: clamp(10px, 3vmin, 15px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #94a3b8;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: clamp(14px, 3.5vmin, 18px);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.activo {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+        }
+
+        .vista-locutor {
+            display: none;
+            /* Se activa por JS */
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Modificado aquí para coincidir con el ID tableroMaster */
+        #tableroMaster.activa {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #vista-cartones.activa {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tablero-master-grid {
+            gap: 0;
+            background: var(--panel-bg);
+            padding: 2vmin;
+            border-radius: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .grupo-letra {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 2vmin;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .grupo-letra:last-child {
+            border-bottom: none;
+        }
+
+        .letra-master {
+            font-size: clamp(24px, 7vmin, 45px);
+            font-weight: 900;
+            width: clamp(25px, 8vmin, 45px);
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .letra-master.b {
+            color: #ef4444;
+        }
+
+        .letra-master.i {
+            color: #3b82f6;
+        }
+
+        .letra-master.n {
+            color: #f59e0b;
+        }
+
+        .letra-master.g {
+            color: #10b981;
+        }
+
+        .letra-master.o {
+            color: #8b5cf6;
+        }
+
+        .numeros-grid {
+            flex: 1;
+            height: 80%;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 1vmin;
+        }
+
+        .bola-mini {
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: clamp(4px, 1.5vmin, 10px);
+            font-size: clamp(14px, 4vmin, 22px);
+            font-weight: bold;
+            color: #64748b;
+            transition: all 0.3s ease;
+        }
+
+        .bola-mini.sacada {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 0 10px var(--primary);
+            transform: scale(1.1);
+            z-index: 2;
+        }
+
+        /* --- ESTILOS DE MODALES (Con Márgenes) --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.activo {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 24px;
+            width: calc(100% - 40px);
+            /* Margen de 20px a cada lado */
+            max-width: 350px;
+            text-align: center;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateY(20px) scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-sizing: border-box;
+            /* Asegura que el padding no desborde */
+        }
+
+        .modal-overlay.activo .modal-content {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-icono {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .modal-titulo {
+            color: #f59e0b;
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .modal-texto {
+            color: #cbd5e1;
+            font-size: 15px;
+            margin-bottom: 25px;
+            line-height: 1.4;
+        }
+
+        .modal-botones {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn-modal {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-modal:active {
+            transform: scale(0.95);
+        }
+
+        .btn-modal.cancelar {
+            background: #475569;
+            color: white;
+        }
+
+        .btn-modal.confirmar {
+            background: #ef4444;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas-confetti"></canvas>
+
+    <!-- PANTALLA 1: INICIO -->
+    <div id="pantalla-inicio" class="pantalla activa">
+        <div class="logo-inicio">BINGO AMIGO</div>
+
+        <button class="btn-rol locutor" onclick="seleccionarRol('locutor')">
+            🎤 Soy el Locutor
+        </button>
+        <button class="btn-rol jugador" onclick="seleccionarRol('setup-jugador')">
+            🎟️ Soy Jugador
+        </button>
+    </div>
+
+    <!-- PANTALLA 1.5: SETUP JUGADOR (SELECCIÓN Y QR) -->
+    <div id="pantalla-setup-jugador" class="pantalla">
+        <div class="top-bar" style="width: 100%;">
+            <button class="btn-volver" onclick="volverAlInicio()">
+                < Menú</button>
+            </button>
+        </div>
+
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <div class="subtitulo"
+                style="color:white; font-size:clamp(16px, 4.5vmin, 26px); font-weight:bold; margin-bottom: 10px;">
+                ¿Cuántos cartones?
+            </div>
+
+            <div class="selector-cartones">
+                <button class="btn-contador" onclick="modificarContador(-1)">-</button>
+                <div class="display-contador" id="displayContadorCartones">1</div>
+                <button class="btn-contador" onclick="modificarContador(1)">+</button>
+            </div>
+
+            <div id="qr-reader"></div>
+            <div id="qr-feedback"></div>
+
+            <button id="btn-abrir-camara" class="btn-rol jugador" style="width: 100%; max-width: 300px; margin: 0;"
+                onclick="abrirCamaraQR()">
+                📷 Escanear QR
+            </button>
+
+            <!-- BOTÓN TEMPORAL DE PRUEBA -->
+            <button class="btn-rol"
+                style="width: 100%; max-width: 300px; margin-top: 15px; background: #475569; padding: 12px; font-size: 16px; box-shadow: none;"
+                onclick="iniciarJuegoJugador()">
+                🛠️ Saltar QR (Modo Prueba)
+            </button>
+        </div>
+    </div>
+
+    <!-- PANTALLA 2: JUGADOR (CARRUSEL) -->
+    <div id="pantalla-jugador" class="pantalla">
+        <div class="top-bar">
+            <button class="btn-volver" onclick="volverAlInicio()">
+                < Menú</button>
+                    <div style="font-weight:bold; color:#fcd34d; font-size: 18px;" id="indicadorCantidadCartones">
+                        Cartones: 1</div>
+        </div>
+
+        <div class="seccion-jugador">
+            <div class="slider-cartones" id="sliderCartones"></div>
+            <div class="dots-container" id="dotsContainer"></div>
+
+            <div class="controles-footer">
+                <button class="btn-jugador btn-limpiar" id="btnLimpiar"
+                    onclick="limpiarTodosLosCartones(false)">Limpiar</button>
+                <button class="btn-jugador btn-cambiar" id="btnCambiar"
+                    onclick="cambiarCartones(false)">Cambiar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA 3: LOCUTOR -->
+    <div id="pantalla-locutor" class="pantalla">
+        <div class="top-bar">
+            <button class="btn-volver" onclick="volverAlInicio()">
+                < Menú</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-volver" style="background: #3b82f6; border:none; padding: 8px 12px;"
+                            onclick="abrirModalQR()">📲 QR</button>
+                        <button class="btn-volver" style="background: #ef4444; border:none; padding: 8px 12px;"
+                            onclick="reiniciarBombo()">Reiniciar</button>
+                    </div>
+        </div>
+
+        <div class="panel-control-locutor">
+            <div class="bola-actual-locutor" id="displayBola">--</div>
+            <button class="btn-cantar" onclick="cantarBola()">Cantar</button>
+        </div>
+
+        <!-- TABS DE LOCUTOR -->
+        <div class="locutor-tabs">
+            <button id="tab-tablero" class="tab-btn activo" onclick="cambiarTabLocutor('tablero')">Tablero
+                Máster</button>
+            <button id="tab-cartones" class="tab-btn" onclick="cambiarTabLocutor('cartones')">Mis Cartones</button>
+        </div>
+
+        <!-- CONTENIDO: TABLERO MASTER (Corregido ID) -->
+        <div id="tableroMaster" class="vista-locutor activa tablero-master-grid">
+            <!-- Se generará dinámicamente -->
+        </div>
+
+        <!-- CONTENIDO: MIS CARTONES (LOCUTOR) -->
+        <div id="vista-cartones" class="vista-locutor">
+
+            <!-- Setup Cartones Locutor -->
+            <div id="setup-cartones-locutor"
+                style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1;">
+                <div class="subtitulo" style="margin-bottom: 20px; color: white;">¿Cuántos cartones jugarás?</div>
+                <div class="selector-cartones">
+                    <button class="btn-contador" onclick="modificarContadorLocutor(-1)">-</button>
+                    <div class="display-contador" id="contador-locutor">1</div>
+                    <button class="btn-contador" onclick="modificarContadorLocutor(1)">+</button>
+                </div>
+                <button class="btn-jugador btn-cambiar"
+                    style="padding: 15px 30px; max-width: 250px; border-radius: 16px;"
+                    onclick="generarCartonesLocutor()">Generar y Jugar</button>
+            </div>
+
+            <!-- Slider Cartones Locutor -->
+            <div id="juego-cartones-locutor" class="seccion-jugador" style="display:none; flex:1; box-shadow: none;">
+                <div class="slider-cartones" id="sliderCartonesLocutor"></div>
+                <div class="dots-container" id="dotsContainerLocutor"></div>
+                <div class="controles-footer">
+                    <button class="btn-jugador btn-limpiar" id="btnLimpiarLocutor"
+                        onclick="limpiarTodosLosCartones(true)">Limpiar</button>
+                    <button class="btn-jugador btn-cambiar" id="btnCambiarLocutor"
+                        onclick="cambiarCartones(true)">Cambiar</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL DE ADVERTENCIA -->
+    <div class="modal-overlay" id="modal-advertencia">
+        <div class="modal-content">
+            <div class="modal-icono">⚠️</div>
+            <div class="modal-titulo">¿Estás seguro?</div>
+            <div class="modal-texto">Si vuelves al inicio perderás tu progreso actual y tus cartones generados.</div>
+            <div class="modal-botones">
+                <button class="btn-modal cancelar" onclick="cerrarModalAdvertencia()">Cancelar</button>
+                <button class="btn-modal confirmar" onclick="confirmarVolverAlInicio()">Sí, al Menú</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DEL QR PARA JUGADORES -->
+    <div class="modal-overlay" id="modal-qr">
+        <div class="modal-content" style="padding: 30px 20px;">
+            <div class="modal-titulo" style="color: #3b82f6;">QR de Ingreso</div>
+            <div style="background: white; padding: 15px; border-radius: 16px; display: inline-block; margin: 15px 0;">
+                <!-- QR generado vía API apuntando a "Bingo Amigo" -->
+                <img src="qr-bingo.png" alt="QR" style="display: block; width: 200px; height: 200px;">
+            </div>
+            <div class="modal-texto">Pide a tus jugadores que escaneen este código desde sus teléfonos para entrar al
+                juego.</div>
+            <button class="btn-modal confirmar" style="background: #3b82f6; width: 100%; margin-top: 10px;"
+                onclick="cerrarModalQR()">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL
+        let bombo = [];
+        let bolasSacadas = new Set();
+
+        let listaCartones = [];
+        let cantidadCartonesComprados = 1;
+        let cantidadCartonesLocutor = 1;
+        const MAX_CARTONES = 6;
+
+        const coloresLetras = { 'B': '#ef4444', 'I': '#3b82f6', 'N': '#f59e0b', 'G': '#10b981', 'O': '#8b5cf6' };
+
+        // --- SISTEMA LECTOR QR ---
+        let html5QrCode;
+
+        function abrirCamaraQR() {
+            document.getElementById('btn-abrir-camara').style.display = 'none';
+            document.getElementById('qr-reader').style.display = 'block';
+            document.getElementById('qr-feedback').innerText = "";
+
+            html5QrCode = new Html5Qrcode("qr-reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                (decodedText) => {
+                    if (decodedText.trim() === "Bingo Amigo") {
+                        document.getElementById('qr-feedback').innerText = "¡Código Aceptado!";
+                        document.getElementById('qr-feedback').style.color = "#10b981";
+                        html5QrCode.stop().then(() => {
+                            document.getElementById('qr-reader').style.display = 'none';
+                            document.getElementById('btn-abrir-camara').style.display = 'flex';
+                            document.getElementById('qr-feedback').innerText = "";
+                            iniciarJuegoJugador();
+                        }).catch(err => console.log(err));
+                    } else {
+                        document.getElementById('qr-feedback').innerText = "Código incorrecto.";
+                        document.getElementById('qr-feedback').style.color = "#ef4444";
+                    }
+                },
+                (errorMessage) => { }
+            ).catch(() => {
+                alert("Asegúrate de dar permisos a la cámara.");
+                document.getElementById('btn-abrir-camara').style.display = 'flex';
+                document.getElementById('qr-reader').style.display = 'none';
+            });
+        }
+
+        // --- NAVEGACIÓN Y MODAL DE ADVERTENCIA ---
+        function seleccionarRol(rol) {
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+            document.getElementById(`pantalla-${rol}`).classList.add('activa');
+
+            if (rol === 'locutor') {
+                if (bombo.length === 0 && bolasSacadas.size === 0) reiniciarBombo();
+                cambiarTabLocutor('tablero'); // Reset tab view
+            } else if (rol === 'setup-jugador') {
+                cantidadCartonesComprados = 1;
+                document.getElementById('displayContadorCartones').innerText = cantidadCartonesComprados;
+            }
+        }
+
+        function volverAlInicio() {
+            let jugadorJugando = document.getElementById('pantalla-jugador').classList.contains('activa') && listaCartones.length > 0;
+            let locutorJugando = document.getElementById('pantalla-locutor').classList.contains('activa') && document.getElementById('juego-cartones-locutor').style.display === 'flex';
+
+            // Si hay progreso (ya sea jugador normal o locutor jugando), pedimos confirmación con Modal
+            if (jugadorJugando || locutorJugando || bolasSacadas.size > 0) {
+                document.getElementById('modal-advertencia').classList.add('activo');
+                return;
+            }
+            ejecutarVolverAlInicio();
+        }
+
+        function cerrarModalAdvertencia() {
+            document.getElementById('modal-advertencia').classList.remove('activo');
+        }
+
+        function confirmarVolverAlInicio() {
+            cerrarModalAdvertencia();
+            ejecutarVolverAlInicio();
+        }
+
+        function ejecutarVolverAlInicio() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(e => console.log(e));
+                document.getElementById('qr-reader').style.display = 'none';
+                document.getElementById('btn-abrir-camara').style.display = 'flex';
+                document.getElementById('qr-feedback').innerText = "";
+            }
+
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+            document.getElementById('pantalla-inicio').classList.add('activa');
+            detenerConfeti();
+            listaCartones = [];
+
+            // Reiniciar panel de locutor (cartones ocultos)
+            document.getElementById('setup-cartones-locutor').style.display = 'flex';
+            document.getElementById('juego-cartones-locutor').style.display = 'none';
+            cantidadCartonesLocutor = 1;
+            document.getElementById('contador-locutor').innerText = 1;
+            reiniciarBombo();
+        }
+
+        // --- MODAL DE QR (LOCUTOR) ---
+        function abrirModalQR() { document.getElementById('modal-qr').classList.add('activo'); }
+        function cerrarModalQR() { document.getElementById('modal-qr').classList.remove('activo'); }
+
+        // --- LÓGICA DEL LOCUTOR ---
+        function cambiarTabLocutor(tab) {
+            if (tab === 'tablero') {
+                document.getElementById('tab-tablero').classList.add('activo');
+                document.getElementById('tab-cartones').classList.remove('activo');
+                document.getElementById('tableroMaster').classList.add('activa'); // CORREGIDO AQUÍ
+                document.getElementById('vista-cartones').classList.remove('activa');
+            } else {
+                document.getElementById('tab-cartones').classList.add('activo');
+                document.getElementById('tab-tablero').classList.remove('activo');
+                document.getElementById('vista-cartones').classList.add('activa');
+                document.getElementById('tableroMaster').classList.remove('activa'); // CORREGIDO AQUÍ
+            }
+        }
+
+        function inicializarBombo() {
+            bombo = [];
+            for (let i = 1; i <= 75; i++) bombo.push(i);
+            bombo.sort(() => Math.random() - 0.5);
+        }
+
+        function generarTableroMaster() {
+            const tablero = document.getElementById('tableroMaster');
+            tablero.innerHTML = '';
+            const letras = ['B', 'I', 'N', 'G', 'O'];
+
+            for (let fila = 0; fila < 5; fila++) {
+                const divGrupo = document.createElement('div');
+                divGrupo.className = 'grupo-letra';
+
+                const letraDiv = document.createElement('div');
+                letraDiv.className = `letra-master ${letras[fila].toLowerCase()}`;
+                letraDiv.innerText = letras[fila];
+                divGrupo.appendChild(letraDiv);
+
+                const gridNumeros = document.createElement('div');
+                gridNumeros.className = 'numeros-grid';
+
+                let inicio = (fila * 15) + 1;
+                for (let i = inicio; i < inicio + 15; i++) {
+                    const bola = document.createElement('div');
+                    bola.className = 'bola-mini';
+                    bola.id = `master-${i}`;
+                    bola.innerText = i;
+                    if (bolasSacadas.has(i)) bola.classList.add('sacada');
+                    gridNumeros.appendChild(bola);
+                }
+                divGrupo.appendChild(gridNumeros);
+                tablero.appendChild(divGrupo);
+            }
+        }
+
+        function cantarBola() {
+            if (bombo.length === 0) {
+                alert('¡Ya se sacaron todas las bolas!');
+                return;
+            }
+            const numero = bombo.pop();
+            bolasSacadas.add(numero);
+
+            let letra;
+            if (numero <= 15) letra = 'B'; else if (numero <= 30) letra = 'I';
+            else if (numero <= 45) letra = 'N'; else if (numero <= 60) letra = 'G'; else letra = 'O';
+
+            const display = document.getElementById('displayBola');
+            display.innerHTML = `<span style="color: ${coloresLetras[letra]};">${letra}</span>${numero}`;
+
+            display.classList.remove('pop');
+            void display.offsetWidth;
+            display.classList.add('pop');
+
+            const bolaMini = document.getElementById(`master-${numero}`);
+            bolaMini.classList.add('sacada');
+        }
+
+        function reiniciarBombo() {
+            bolasSacadas.clear();
+            inicializarBombo();
+            generarTableroMaster();
+            const display = document.getElementById('displayBola');
+            display.innerHTML = '--';
+            display.classList.remove('pop');
+        }
+
+        // --- LÓGICA DE JUGADOR Y LOCUTOR (CARTONES) ---
+        function modificarContador(valor) {
+            let nueva = cantidadCartonesComprados + valor;
+            if (nueva >= 1 && nueva <= MAX_CARTONES) {
+                cantidadCartonesComprados = nueva;
+                document.getElementById('displayContadorCartones').innerText = cantidadCartonesComprados;
+            }
+        }
+
+        function modificarContadorLocutor(valor) {
+            let nueva = cantidadCartonesLocutor + valor;
+            if (nueva >= 1 && nueva <= MAX_CARTONES) {
+                cantidadCartonesLocutor = nueva;
+                document.getElementById('contador-locutor').innerText = cantidadCartonesLocutor;
+            }
+        }
+
+        function iniciarJuegoJugador() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(e => console.log(e));
+                document.getElementById('qr-reader').style.display = 'none';
+            }
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+            document.getElementById('pantalla-jugador').classList.add('activa');
+            generarCartonesIniciales(cantidadCartonesComprados, false, false);
+        }
+
+        function generarCartonesLocutor() {
+            document.getElementById('setup-cartones-locutor').style.display = 'none';
+            document.getElementById('juego-cartones-locutor').style.display = 'flex';
+            generarCartonesIniciales(cantidadCartonesLocutor, false, true);
+        }
+
+        function obtenerNumerosColumna(min, max) {
+            let opciones = [];
+            for (let i = min; i <= max; i++) opciones.push(i);
+            opciones.sort(() => Math.random() - 0.5);
+            return opciones.slice(0, 5).sort((a, b) => a - b);
+        }
+
+        // isLocutor = true enviará los cartones al div del Locutor en vez del jugador regular
+        function generarCartonesIniciales(cantidad, conAnimacion, isLocutor) {
+            const sliderId = isLocutor ? 'sliderCartonesLocutor' : 'sliderCartones';
+            const dotsId = isLocutor ? 'dotsContainerLocutor' : 'dotsContainer';
+
+            const slider = document.getElementById(sliderId);
+            slider.innerHTML = '';
+            listaCartones = [];
+            detenerConfeti();
+
+            if (!isLocutor) {
+                document.getElementById('indicadorCantidadCartones').innerText = `Cartones: ${cantidad}`;
+            }
+
+            for (let i = 0; i < cantidad; i++) {
+                crearEstructuraCarton(i, conAnimacion, sliderId);
+            }
+            actualizarIndicadores(dotsId);
+            slider.scrollTo({ left: 0 });
+
+            // Scroll binder
+            slider.onscroll = function () {
+                if (listaCartones.length <= 1) return;
+                const index = Math.round(this.scrollLeft / this.clientWidth);
+                resaltarDot(index, dotsId);
+            };
+        }
+
+        function crearEstructuraCarton(cartonId, conAnimacion, sliderId) {
+            const cols = {
+                B: obtenerNumerosColumna(1, 15), I: obtenerNumerosColumna(16, 30),
+                N: obtenerNumerosColumna(31, 45), G: obtenerNumerosColumna(46, 60),
+                O: obtenerNumerosColumna(61, 75)
+            };
+
+            const slider = document.getElementById(sliderId);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'carton-wrapper';
+
+            const header = document.createElement('div');
+            header.className = 'bingo-header';
+            header.innerHTML = '<div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>';
+            wrapper.appendChild(header);
+
+            const grid = document.createElement('div');
+            grid.className = 'carton-grid';
+
+            let celdasDeEsteCarton = [];
+            let indexCelda = 0;
+
+            for (let fila = 0; fila < 5; fila++) {
+                ['B', 'I', 'N', 'G', 'O'].forEach((letra) => {
+                    const div = document.createElement('div');
+                    div.style.setProperty('--delay', `${indexCelda * 0.03}s`);
+                    if (conAnimacion) div.classList.add('flip-in');
+
+                    if (fila === 2 && letra === 'N') {
+                        div.className += ' cell free marked';
+                        div.innerHTML = 'LIBRE';
+                    } else {
+                        div.className += ' cell';
+                        div.innerText = cols[letra][fila];
+                        div.onclick = function () {
+                            if (!wrapper.classList.contains('ganador') || this.classList.contains('marked')) {
+                                this.classList.toggle('marked');
+                                comprobarCartonEspecifico(cartonId);
+                            }
+                        };
+                    }
+                    grid.appendChild(div);
+                    celdasDeEsteCarton.push(div);
+                    indexCelda++;
+                });
+            }
+            wrapper.appendChild(grid);
+            slider.appendChild(wrapper);
+
+            listaCartones.push({ id: cartonId, wrapperDOM: wrapper, celdas: celdasDeEsteCarton });
+        }
+
+        function cambiarCartones(isLocutor = false) {
+            const btnId = isLocutor ? 'btnCambiarLocutor' : 'btnCambiar';
+            const btnCambiar = document.getElementById(btnId);
+            if (btnCambiar) btnCambiar.disabled = true;
+
+            const sliderId = isLocutor ? '#sliderCartonesLocutor' : '#sliderCartones';
+            const todasLasCeldas = document.querySelectorAll(`${sliderId} .cell`);
+
+            todasLasCeldas.forEach(celda => {
+                celda.classList.remove('flip-in');
+                celda.classList.add('flip-out');
+            });
+
+            setTimeout(() => {
+                let qty = isLocutor ? cantidadCartonesLocutor : cantidadCartonesComprados;
+                generarCartonesIniciales(qty, true, isLocutor);
+                if (btnCambiar) btnCambiar.disabled = false;
+            }, 1050);
+        }
+
+        function comprobarCartonEspecifico(cartonId) {
+            const carton = listaCartones[cartonId];
+            carton.celdas.forEach(celda => celda.classList.remove('winning-cell'));
+
+            const estado = carton.celdas.map(celda => celda.classList.contains('marked'));
+            let indicesGanadores = new Set();
+            let hayBingo = false;
+
+            for (let f = 0; f < 5; f++) {
+                let inicio = f * 5;
+                if (estado[inicio] && estado[inicio + 1] && estado[inicio + 2] && estado[inicio + 3] && estado[inicio + 4]) {
+                    hayBingo = true;[0, 1, 2, 3, 4].forEach(offset => indicesGanadores.add(inicio + offset));
+                }
+            }
+            for (let c = 0; c < 5; c++) {
+                if (estado[c] && estado[c + 5] && estado[c + 10] && estado[c + 15] && estado[c + 20]) {
+                    hayBingo = true;[0, 5, 10, 15, 20].forEach(offset => indicesGanadores.add(c + offset));
+                }
+            }
+            if (estado[0] && estado[6] && estado[12] && estado[18] && estado[24]) {
+                hayBingo = true;[0, 6, 12, 18, 24].forEach(idx => indicesGanadores.add(idx));
+            }
+            if (estado[4] && estado[8] && estado[12] && estado[16] && estado[20]) {
+                hayBingo = true;[4, 8, 12, 16, 20].forEach(idx => indicesGanadores.add(idx));
+            }
+
+            if (hayBingo) {
+                indicesGanadores.forEach(idx => carton.celdas[idx].classList.add('winning-cell'));
+                if (!carton.wrapperDOM.classList.contains('ganador')) {
+                    carton.wrapperDOM.classList.add('ganador');
+                    dispararConfeti();
+                }
+            } else {
+                carton.wrapperDOM.classList.remove('ganador');
+                if (!listaCartones.some(c => c.wrapperDOM.classList.contains('ganador'))) detenerConfeti();
+            }
+        }
+
+        function limpiarTodosLosCartones(isLocutor = false) {
+            const btnId = isLocutor ? 'btnLimpiarLocutor' : 'btnLimpiar';
+            const btnLimpiar = document.getElementById(btnId);
+            if (btnLimpiar) btnLimpiar.disabled = true;
+
+            listaCartones.forEach(carton => {
+                carton.wrapperDOM.classList.remove('ganador');
+                carton.celdas.forEach((celda, i) => {
+                    celda.classList.remove('winning-cell');
+                    if (!celda.classList.contains('free') && celda.classList.contains('marked')) {
+                        setTimeout(() => celda.classList.remove('marked'), i * 30);
+                    }
+                });
+            });
+            detenerConfeti();
+
+            setTimeout(() => { if (btnLimpiar) btnLimpiar.disabled = false; }, 800);
+        }
+
+        function actualizarIndicadores(dotsId) {
+            const container = document.getElementById(dotsId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (listaCartones.length <= 1) return;
+            for (let i = 0; i < listaCartones.length; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                container.appendChild(dot);
+            }
+            resaltarDot(0, dotsId);
+        }
+
+        function resaltarDot(index, dotsId) {
+            document.querySelectorAll(`#${dotsId} .dot`).forEach((d, i) => {
+                d.classList.toggle('active', i === index);
+            });
+        }
+
+        // --- SISTEMA DE CONFETI ---
+        let confetiAnimacion;
+        function dispararConfeti() {
+            if (confetiAnimacion) return;
+            const canvas = document.getElementById('canvas-confetti');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            let particulas = [];
+            const colores = ['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6'];
+
+            for (let i = 0; i < 150; i++) {
+                particulas.push({
+                    x: canvas.width / 2, y: canvas.height,
+                    r: Math.random() * 8 + 4, dx: Math.random() * 12 - 6, dy: Math.random() * -20 - 5,
+                    color: colores[Math.floor(Math.random() * colores.length)]
+                });
+            }
+
+            function animarConfeti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let activas = false;
+                particulas.forEach(p => {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                    p.x += p.dx; p.y += p.dy; p.dy += 0.5;
+                    if (p.y < canvas.height) activas = true;
+                });
+
+                if (activas) confetiAnimacion = requestAnimationFrame(animarConfeti);
+                else confetiAnimacion = null;
+            }
+            animarConfeti();
+        }
+
+        function detenerConfeti() {
+            if (confetiAnimacion) { cancelAnimationFrame(confetiAnimacion); confetiAnimacion = null; }
+            const canvas = document.getElementById('canvas-confetti');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // REGISTRO DEL SERVICE WORKER
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg))
+                    .catch(err => console.log('Error al registrar el Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>
