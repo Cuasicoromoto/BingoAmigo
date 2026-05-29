@@ -750,6 +750,32 @@
             background: #ef4444;
             color: white;
         }
+
+        /* --- NOTIFICACIÓN DE ACTUALIZACIÓN --- */
+        #update-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #3b82f6;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            font-family: inherit;
+        }
+
+        #update-toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 
@@ -919,6 +945,12 @@
                 onclick="cerrarModalQR()">Cerrar</button>
         </div>
     </div>
+
+    <!-- TOAST DE ACTUALIZACIÓN -->
+    <button id="update-toast" onclick="versionNueva()">
+        ✨ Actualización disponible
+    </button>
+
 
     <script>
         // ESTADO GLOBAL
@@ -1501,13 +1533,33 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // REGISTRO DEL SERVICE WORKER
+        // REGISTRO DEL SERVICE WORKER CON DETECTOR DE CAMBIOS
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker registrado con éxito:', reg))
-                    .catch(err => console.log('Error al registrar el Service Worker:', err));
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    // Escuchar si hay una actualización esperando
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Mostrar el toast si hay una versión nueva lista
+                                document.getElementById('update-toast').classList.add('visible');
+                            }
+                        };
+                    };
+                });
             });
+        }
+
+        function versionNueva() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistration().then(reg => {
+                    if (reg && reg.waiting) {
+                        reg.waiting.postMessage('skipWaiting');
+                    }
+                    window.location.reload();
+                });
+            }
         }
 
         // CARGAR ESTADO AL INICIAR
