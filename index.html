@@ -776,6 +776,31 @@
         #update-toast.visible {
             transform: translateX(-50%) translateY(0);
         }
+
+        #install-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            font-family: inherit;
+        }
+
+        #install-toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 
@@ -949,6 +974,11 @@
     <!-- TOAST DE ACTUALIZACIÓN -->
     <button id="update-toast" onclick="versionNueva()">
         ✨ Actualización disponible
+    </button>
+
+    <!-- TOAST DE INSTALACIÓN -->
+    <button id="install-toast" onclick="instalarApp()">
+        📲 Instalar aplicación
     </button>
 
 
@@ -1560,6 +1590,58 @@
                     window.location.reload();
                 });
             }
+        }
+
+        // LÓGICA DE INSTALACIÓN PWA
+        let deferredPrompt;
+        const installToast = document.getElementById('install-toast');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Evitar que el navegador muestre el banner por defecto
+            e.preventDefault();
+            // Guardar el evento para dispararlo más tarde
+            deferredPrompt = e;
+            // Mostrar el toast de instalación
+            installToast.classList.add('visible');
+        });
+
+        async function instalarApp() {
+            if (deferredPrompt) {
+                // Ocultar el toast
+                installToast.classList.remove('visible');
+                // Mostrar el prompt de instalación
+                deferredPrompt.prompt();
+                // Esperar a que el usuario responda
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`Usuario tomó la decisión: ${outcome}`);
+                // Limpiar el evento
+                deferredPrompt = null;
+            } else {
+                // Si no hay prompt (iOS o ya instalado), ocultar el toast
+                installToast.classList.remove('visible');
+                // En iOS podríamos mostrar un mensaje de ayuda aquí si quisiéramos
+            }
+        }
+
+        // Ocultar al instalar
+        window.addEventListener('appinstalled', () => {
+            installToast.classList.remove('visible');
+            deferredPrompt = null;
+        });
+
+        // Detectar iOS para ayuda visual (opcional)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+        if (isIOS && !isStandalone) {
+            // En iOS no hay beforeinstallprompt, podemos mostrar el toast con instrucciones
+            setTimeout(() => {
+                const toast = document.getElementById('install-toast');
+                toast.innerHTML = '📲 Toca "Compartir" y "Añadir a inicio"';
+                toast.classList.add('visible');
+                // Desaparecer después de 10 segundos
+                setTimeout(() => toast.classList.remove('visible'), 10000);
+            }, 5000);
         }
 
         // CARGAR ESTADO AL INICIAR
