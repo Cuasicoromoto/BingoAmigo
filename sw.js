@@ -1,10 +1,11 @@
-const CACHE_NAME = 'bingo-amigo-v1.4';
+const CACHE_NAME = 'bingo-amigo-v1.5';
 const ASSETS = [
     './',
     './index.html',
     './manifest.json',
     './html5-qrcode.js',
     './qr-bingo.png',
+    './qr-app.png',
     './icon-192.png',
     './icon-512.png',
     './icon-512-maskable.png'
