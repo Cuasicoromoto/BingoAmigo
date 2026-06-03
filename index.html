@@ -361,6 +361,28 @@
         .cell.free.marked::after {
             display: none;
         }
+        
+        .btn-secundario {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            padding: 12px 24px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-secundario:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.1);
+        }
 
         @keyframes pulsoGanador {
             0% {
@@ -818,6 +840,11 @@
         <button class="btn-rol jugador" onclick="seleccionarRol('setup-jugador')">
             🎟️ Soy Jugador
         </button>
+            
+        <!-- NUEVO BOTÓN PARA COMPARTIR LA APP -->
+        <button class="btn-secundario" onclick="abrirModalQRApp()">
+            🌐 QR para obtener el juego
+        </button>
     </div>
 
     <!-- PANTALLA 1.5: SETUP JUGADOR (SELECCIÓN Y QR) -->
@@ -887,8 +914,7 @@
             <button class="btn-volver" onclick="volverAlInicio()">
                 < Menú</button>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn-volver" style="background: #3b82f6; border:none; padding: 8px 12px;"
-                            onclick="abrirModalQR()">📲 QR</button>
+                        <button class="btn-volver" style="background: #3b82f6; border:none; padding: 8px 12px;" onclick="abrirModalQR()">🔑 QR Ingreso</button>
                         <button class="btn-volver" style="background: #ef4444; border:none; padding: 8px 12px;"
                             onclick="reiniciarBombo()">Reiniciar</button>
                     </div>
@@ -968,6 +994,23 @@
                 juego.</div>
             <button class="btn-modal confirmar" style="background: #3b82f6; width: 100%; margin-top: 10px;"
                 onclick="cerrarModalQR()">Cerrar</button>
+        </div>
+    </div>
+    
+    <!-- MODAL DEL QR PARA COMPARTIR LA APLICACIÓN WEB -->
+    <div class="modal-overlay" id="modal-qr-app">
+
+        <div class="modal-content" style="padding: 30px 20px;">
+            <div class="modal-titulo" style="color: #10b981;">Compartir Juego</div>
+            <div style="background: white; padding: 15px; border-radius: 16px; display: inline-block; margin: 15px 0;">
+                
+                <!-- AQUÍ CAMBIAMOS EL SRC POR LA IMAGEN LOCAL -->
+                <img src="qr-app.png" alt="QR App" style="display: block; width: 200px; height: 200px;">
+                
+            </div>
+            <div class="modal-texto">Cualquier persona puede escanear este código para abrir el juego en su móvil sin instalar nada.</div>
+            <button class="btn-modal confirmar" style="background: #10b981; width: 100%; margin-top: 10px;"
+                onclick="cerrarModalQRApp()">Cerrar</button>
         </div>
     </div>
 
@@ -1212,6 +1255,10 @@
         // --- MODAL DE QR (LOCUTOR) ---
         function abrirModalQR() { document.getElementById('modal-qr').classList.add('activo'); }
         function cerrarModalQR() { document.getElementById('modal-qr').classList.remove('activo'); }
+
+        // --- MODAL DE QR (COMPARTIR APP) ---
+        function abrirModalQRApp() { document.getElementById('modal-qr-app').classList.add('activo'); }
+        function cerrarModalQRApp() { document.getElementById('modal-qr-app').classList.remove('activo'); }
 
         // --- LÓGICA DEL LOCUTOR ---
         function cambiarTabLocutor(tab) {
